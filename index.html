@@ -95,8 +95,11 @@
   </div>
 
   <button class="btn go" style="font-size:20px;padding:20px" onclick="startCapture()">📷 New Item — take photo</button>
-  <button class="btn ghost" style="margin-top:10px" onclick="startCapture(true)">🖼 New Item — from library</button>
-  <div class="small" style="text-align:center;margin-top:10px">Photo → fill the fields → the app won’t let you save until pricing data is captured.</div>
+  <div class="navrow" style="margin-top:10px">
+    <button class="btn ghost" onclick="startCapture(true)">🖼 From library</button>
+    <button class="btn primary" onclick="startManual()">⌨️ Type MPN (no photo)</button>
+  </div>
+  <div class="small" style="text-align:center;margin-top:10px">Start with a photo OR by typing the MPN — you can add the other later.</div>
 
   <div class="card" id="recent"></div>
 </div>
@@ -109,8 +112,8 @@
       <button class="btn ghost" style="width:auto;padding:8px 14px" onclick="cancelForm()">Cancel</button>
     </div>
 
-    <div class="req" id="wPhoto">
-      <label>Photos (nameplate first) *</label>
+    <div id="wPhoto">
+      <label>Photos (recommended — nameplate first)</label>
       <div class="thumbs" id="thumbs"></div>
       <div class="navrow" style="margin-top:8px"><button class="btn ghost" onclick="addPhoto()">📷 Add photo</button><button class="btn ghost" onclick="addPhoto(true)">🖼 From library</button></div>
       <div class="hint">Shoot the nameplate close enough to read the fine print — it preserves every secondary ID even if you don’t type it.</div>
@@ -264,6 +267,13 @@ async function addPhoto(lib){
   if(PREVIEW){await addTestPhoto();return;}
   const inp=lib?$('gal'):$('cam');inp.value='';inp.click();
 }
+async function startManual(){
+  if(!walker){await setWalker();if(!walker)return;}
+  if(!$('zone').value.trim()){toast('Enter the current Zone first');$('zone').focus();return;}
+  draft={photos:[],cond:'Take-off'};curGps=null;
+  openForm(); acquireGps();
+  setTimeout(()=>$('mpn').focus(),150);   // start typing the MPN right away
+}
 async function addTestPhoto(){
   const firstOpen=$('form').classList.contains('hide');
   draft.photos.push(await makeTestPhoto());
@@ -329,7 +339,6 @@ function acquireGps(){
 function clearMiss(){['wPhoto','wMpn','wQty','wCond','wZone'].forEach(id=>$(id).classList.remove('miss'));}
 function saveItem(next){
   clearMiss();const miss=[];
-  if(draft.photos.length===0){$('wPhoto').classList.add('miss');miss.push('photo');}
   if(!$('mpn').value.trim()){$('wMpn').classList.add('miss');miss.push('MPN');}
   if(!(+$('qty').value>0)){$('wQty').classList.add('miss');miss.push('quantity');}
   if(!draft.cond){$('wCond').classList.add('miss');miss.push('condition');}
