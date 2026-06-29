@@ -61,6 +61,15 @@
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
   .mbox{background:var(--card);border:1px solid var(--blue);border-radius:14px;padding:18px;width:100%;max-width:420px}
   .mttl{font-size:16px;font-weight:600;margin-bottom:12px}
+  .thumbs img{cursor:zoom-in}
+  .lb{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column}
+  .lbtop{display:flex;gap:8px;padding:10px}
+  .lbtop button{flex:1;padding:13px;border:0;border-radius:9px;background:#2a2f3a;color:#fff;font-size:17px;font-weight:700}
+  .lbtop button.done{background:var(--ok)}
+  .lbimgwrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;align-items:flex-start;justify-content:center;background:#000}
+  .lbimgwrap img{display:block;max-width:100%;height:auto}
+  .lbfields{background:var(--card);border-top:2px solid var(--blue);padding:12px;max-height:46vh;overflow:auto}
+  .lbfields label{margin-top:8px}
   h2{font-size:16px;margin:4px 0 2px}
   .zonebar{display:flex;gap:8px;align-items:center}
   .zonebar input{font-size:16px;padding:10px}
@@ -180,6 +189,22 @@
   </div>
 </div></div>
 
+<div class="lb hide" id="lightbox">
+  <div class="lbtop">
+    <button onclick="lbZoom(-1)">－</button>
+    <button onclick="lbZoom(0)">Fit</button>
+    <button onclick="lbZoom(1)">＋</button>
+    <button class="done" onclick="closeLb()">✕ Done</button>
+  </div>
+  <div class="lbimgwrap" id="lbWrap"><img id="lbImg" ondblclick="lbToggle()"></div>
+  <div class="lbfields hide" id="lbFields">
+    <div class="small">Read the tag above, fill these — they sync to the item form. Pinch or use ＋ / double-tap to zoom.</div>
+    <label>MPN</label><input type="text" id="lbMpn" autocapitalize="characters" autocomplete="off" oninput="$('mpn').value=this.value;mpnHint()">
+    <label>Manufacturer</label><input type="text" id="lbMfr" autocomplete="off" oninput="$('mfr').value=this.value">
+    <label>Secondary IDs (series / firmware / V / A / serial)</label><input type="text" id="lbSec" autocomplete="off" oninput="$('secids').value=this.value;markSecTyped()">
+  </div>
+</div>
+
 <input type="file" id="cam" accept="image/*" capture="environment" class="hide" onchange="onPhoto(event)">
 <input type="file" id="gal" accept="image/*" multiple class="hide" onchange="onPhoto(event)">
 
@@ -280,7 +305,7 @@ function openForm(){
 }
 function renderThumbs(){
   const t=$('thumbs');t.innerHTML='';
-  draft.photos.forEach(f=>{const u=URL.createObjectURL(f);const i=new Image();i.src=u;t.appendChild(i);});
+  draft.photos.forEach(f=>{const u=URL.createObjectURL(f);const i=new Image();i.src=u;i.onclick=()=>openLb(u,true);t.appendChild(i);});
 }
 function pickSec(el){[...el.parentNode.children].forEach(c=>c.classList.remove('sel'));el.classList.add('sel');draft.secStatus=el.dataset.v;}
 function mpnHint(){
@@ -340,7 +365,7 @@ function showList(){getAll(SV).then(items=>{items.sort((a,b)=>a.createdAt<b.crea
 async function renderItemRow(parent,it,withDel){
   const div=document.createElement('div');div.className='item';
   const ph=await getPhoto(it.photoNames[0]);
-  const img=new Image();if(ph)img.src=URL.createObjectURL(ph.blob);
+  const img=new Image();if(ph){const u=URL.createObjectURL(ph.blob);img.src=u;img.style.cursor='zoom-in';img.onclick=()=>openLb(u,false);}
   const sec=it.secStatus==='typed'?it.secids:(it.secStatus==='photo'?'in photo':'N/A');
   div.appendChild(img);
   const m=document.createElement('div');m.className='m';
@@ -438,13 +463,31 @@ function parseOcr(raw){
   const add=[];if(ser)add.push('SER '+ser);if(frn)add.push('FRN '+frn);
   if(add.length){const ex=$('secids').value;$('secids').value=(ex?ex+' · ':'')+add.join(' ');
     const c=[...document.querySelectorAll('#secStatus .chip')].find(x=>x.dataset.v==='typed');if(c)pickSec(c);}
+  const BRANDS=['ALLEN-BRADLEY','ALLEN BRADLEY','ROCKWELL','SIEMENS','SQUARE D','SCHNEIDER','ABB','EATON','CUTLER-HAMMER','GENERAL ELECTRIC','OMRON','MITSUBISHI','FANUC','FESTO','BANNER','TURCK','PHOENIX CONTACT','YASKAWA','HONEYWELL','PARKER','KEYENCE'];
+  const brand=BRANDS.find(b=>T.includes(b)); if(brand&&!$('mfr').value)$('mfr').value=brand;
   mpnHint();
+  if(!$('lightbox').classList.contains('hide')){$('lbMpn').value=$('mpn').value;$('lbMfr').value=$('mfr').value;$('lbSec').value=$('secids').value;}
   const out=$('ocrOut');out.classList.remove('hide');
   out.innerHTML='<div class="small">Tap any line to drop it into the field you’re editing:</div>';
   lines.filter(l=>l.trim()).forEach(l=>{const d=document.createElement('div');d.className='chip';d.style.display='block';d.style.margin='4px 0';
     d.textContent=l.trim();d.onclick=()=>{if(lastField)lastField.value=(lastField.value?lastField.value+' ':'')+l.trim();};out.appendChild(d);});
   toast((cand?'MPN: '+cand:'No clear MPN')+(add.length?' · '+add.join(' '):''));
 }
+
+/* ---------- photo lightbox (tap to enlarge + fill fields) ---------- */
+let _lbScale=1;
+function openLb(url,withFields){
+  $('lbImg').src=url; lbFit();
+  $('lbFields').classList.toggle('hide',!withFields);
+  if(withFields){$('lbMpn').value=$('mpn').value;$('lbMfr').value=$('mfr').value;$('lbSec').value=$('secids').value;}
+  $('lightbox').classList.remove('hide');
+}
+function closeLb(){$('lightbox').classList.add('hide');}
+function lbFit(){_lbScale=1;const im=$('lbImg');im.style.maxWidth='100%';im.style.width='auto';}
+function lbZoom(dir){if(dir===0)return lbFit();
+  _lbScale=Math.max(1,Math.min(6,_lbScale+dir*0.5));const im=$('lbImg');im.style.maxWidth='none';im.style.width=(_lbScale*100)+'%';}
+function lbToggle(){if(_lbScale>1)lbFit();else{_lbScale=2.5;const im=$('lbImg');im.style.maxWidth='none';im.style.width='250%';}}
+function markSecTyped(){if($('secids').value.trim()){const c=[...document.querySelectorAll('#secStatus .chip')].find(x=>x.dataset.v==='typed');if(c)pickSec(c);}}
 
 /* ---------- boot ---------- */
 function start(){
