@@ -190,7 +190,8 @@
   </div>
   <div class="lbimgwrap" id="lbWrap"><img id="lbImg" ondblclick="lbToggle()"></div>
   <div class="lbfields hide" id="lbFields">
-    <div class="small">Read the tag above, fill these — they sync to the item form. Pinch or use ＋ / double-tap to zoom.</div>
+    <div class="small">Compare the tag above to the MPN, then add the <b>Series + Firmware (secondary ID)</b>. Pinch / ＋ / double-tap to zoom.</div>
+    <button class="btn ghost" style="margin:8px 0" onclick="readPhoto()">📖 Read MPN / Series / Firmware from photo</button>
     <label>MPN</label><input type="text" id="lbMpn" autocapitalize="characters" autocomplete="off" oninput="$('mpn').value=this.value;mpnHint()">
     <label>Series</label><input type="text" id="lbSeries" autocapitalize="characters" autocomplete="off" oninput="$('series').value=this.value">
     <label>Firmware</label><input type="text" id="lbFw" autocomplete="off" oninput="$('firmware').value=this.value">
@@ -264,10 +265,12 @@ async function addPhoto(lib){
   const inp=lib?$('gal'):$('cam');inp.value='';inp.click();
 }
 async function addTestPhoto(){
+  const firstOpen=$('form').classList.contains('hide');
   draft.photos.push(await makeTestPhoto());
-  if($('form').classList.contains('hide')) openForm();
+  if(firstOpen) openForm();
   renderThumbs(); acquireGps();
   toast('Preview: test photo added (real camera works once deployed)');
+  if(firstOpen) reviewAfterCapture();
 }
 function makeTestPhoto(){return new Promise(res=>{
   const c=document.createElement('canvas');c.width=640;c.height=420;const x=c.getContext('2d');
@@ -278,11 +281,13 @@ function makeTestPhoto(){return new Promise(res=>{
 });}
 function onPhoto(e){
   const files=e.target.files;if(!files||!files.length)return;
+  const firstOpen=$('form').classList.contains('hide');
   for(const f of files){if(f&&(!f.type||f.type.indexOf('image')===0))draft.photos.push(f);}
-  if($('form').classList.contains('hide')) openForm();   // first photo opens the form
+  if(firstOpen) openForm();   // first photo opens the form
   renderThumbs();
   acquireGps();
   e.target.value='';
+  if(firstOpen) reviewAfterCapture();   // pop the tag + identity review screen
 }
 function openForm(){
   $('home').classList.add('hide');$('list').classList.add('hide');
@@ -474,6 +479,7 @@ function openLb(url,withFields){
   if(withFields){$('lbMpn').value=$('mpn').value;$('lbSeries').value=$('series').value;$('lbFw').value=$('firmware').value;$('lbMfr').value=$('mfr').value;}
   $('lightbox').classList.remove('hide');
 }
+function reviewAfterCapture(){const f=draft.photos[0];if(!f)return;openLb(URL.createObjectURL(f),true);}
 function closeLb(){$('lightbox').classList.add('hide');}
 function lbFit(){_lbScale=1;const im=$('lbImg');im.style.maxWidth='100%';im.style.width='auto';}
 function lbZoom(dir){if(dir===0)return lbFit();
