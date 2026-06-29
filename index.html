@@ -193,12 +193,12 @@
   </div>
   <div class="lbimgwrap" id="lbWrap"><img id="lbImg" ondblclick="lbToggle()"></div>
   <div class="lbfields hide" id="lbFields">
-    <div class="small">Read the tag above, then <b>type the MPN</b> (or tap Read to auto-fill), and add the <b>Series + Firmware (secondary ID)</b>. Pinch / ＋ / double-tap to zoom.</div>
-    <label>MPN — type it</label><input type="text" id="lbMpn" autocapitalize="characters" autocomplete="off" enterkeyhint="next" placeholder="type the part number from the tag" oninput="$('mpn').value=this.value;mpnHint()">
+    <div class="small" id="lbHint">The app auto-reads the tag and fills the fields below — <b>confirm or edit</b>. Pinch / ＋ / double-tap to zoom.</div>
+    <label>MPN — edit if wrong</label><input type="text" id="lbMpn" autocapitalize="characters" autocomplete="off" enterkeyhint="next" placeholder="type or correct the part number" oninput="$('mpn').value=this.value;mpnHint()">
     <label>Series</label><input type="text" id="lbSeries" autocapitalize="characters" autocomplete="off" enterkeyhint="next" placeholder="type series (blank if none)" oninput="$('series').value=this.value">
     <label>Firmware</label><input type="text" id="lbFw" autocomplete="off" enterkeyhint="next" placeholder="type firmware (blank if none)" oninput="$('firmware').value=this.value">
     <label>Manufacturer</label><input type="text" id="lbMfr" autocomplete="off" placeholder="type manufacturer" oninput="$('mfr').value=this.value">
-    <button class="btn ghost" style="margin-top:10px" onclick="readPhoto()">📖 Or auto-fill from photo (needs signal)</button>
+    <button class="btn ghost" style="margin-top:10px" onclick="readPhoto()">📖 Re-read from photo</button>
   </div>
 </div>
 
@@ -449,11 +449,13 @@ function loadScript(src){return new Promise((res,rej)=>{const s=document.createE
 async function readPhoto(){
   if(!draft||!draft.photos.length){toast('Take a photo first');return;}
   const btn=$('ocrBtn'),old=btn.textContent;btn.textContent='Reading… (needs signal)';
+  const h=$('lbHint');if(h&&!$('lightbox').classList.contains('hide'))h.innerHTML='📖 Reading the tag… (needs signal)';
   try{
     if(!window.Tesseract)await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
     const {data}=await Tesseract.recognize(draft.photos[0],'eng');
     parseOcr(data.text||'');
-  }catch(e){toast('No signal — photo saved; I’ll read it after the walk');}
+  }catch(e){toast('No signal — photo saved; I’ll read it after the walk');
+    if(h)h.innerHTML='No signal to auto-read — <b>type the fields</b>; I’ll read the photo after the walk.';}
   btn.textContent=old;
 }
 function parseOcr(raw){
@@ -472,7 +474,8 @@ function parseOcr(raw){
   const BRANDS=['ALLEN-BRADLEY','ALLEN BRADLEY','ROCKWELL','SIEMENS','SQUARE D','SCHNEIDER','ABB','EATON','CUTLER-HAMMER','GENERAL ELECTRIC','OMRON','MITSUBISHI','FANUC','FESTO','BANNER','TURCK','PHOENIX CONTACT','YASKAWA','HONEYWELL','PARKER','KEYENCE'];
   const brand=BRANDS.find(b=>T.includes(b)); if(brand&&!$('mfr').value)$('mfr').value=brand;
   mpnHint();
-  if(!$('lightbox').classList.contains('hide')){$('lbMpn').value=$('mpn').value;$('lbSeries').value=$('series').value;$('lbFw').value=$('firmware').value;$('lbMfr').value=$('mfr').value;}
+  if(!$('lightbox').classList.contains('hide')){$('lbMpn').value=$('mpn').value;$('lbSeries').value=$('series').value;$('lbFw').value=$('firmware').value;$('lbMfr').value=$('mfr').value;
+    const h2=$('lbHint');if(h2)h2.innerHTML=(cand?'Auto-read done — <b>confirm or edit</b> below.':'Couldn’t auto-read a clear MPN — <b>type it</b> below.');}
   const out=$('ocrOut');out.classList.remove('hide');
   out.innerHTML='<div class="small">Tap any line to drop it into the field you’re editing:</div>';
   lines.filter(l=>l.trim()).forEach(l=>{const d=document.createElement('div');d.className='chip';d.style.display='block';d.style.margin='4px 0';
@@ -488,7 +491,7 @@ function openLb(url,withFields){
   if(withFields){$('lbMpn').value=$('mpn').value;$('lbSeries').value=$('series').value;$('lbFw').value=$('firmware').value;$('lbMfr').value=$('mfr').value;}
   $('lightbox').classList.remove('hide');
 }
-function reviewAfterCapture(){const f=draft.photos[0];if(!f)return;openLb(URL.createObjectURL(f),true);}
+function reviewAfterCapture(){const f=draft.photos[0];if(!f)return;openLb(URL.createObjectURL(f),true);readPhoto();/* auto-read any picture */}
 function closeLb(){$('lightbox').classList.add('hide');}
 function lbFit(){_lbScale=1;const im=$('lbImg');im.style.maxWidth='100%';im.style.width='auto';}
 function lbZoom(dir){if(dir===0)return lbFit();
