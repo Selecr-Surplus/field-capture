@@ -102,6 +102,12 @@
   <div class="small" style="text-align:center;margin-top:10px">Start with a photo OR by typing the MPN — you can add the other later.</div>
 
   <div class="card" id="recent"></div>
+
+  <div class="card">
+    <button class="btn primary" onclick="completeRoom()">✅ Complete Room → start next zone</button>
+    <button class="btn go" style="margin-top:10px" onclick="completeAndExport()">📦 Complete List &amp; Export</button>
+    <div class="hint">Complete Room logs the next zone for following items. Complete List builds a zip (CSV + all photos) to share for pricing — and merges with Aaron’s.</div>
+  </div>
 </div>
 
 <!-- CAPTURE FORM -->
@@ -254,6 +260,19 @@ async function setWalker(){const w=await modalOpen('Your initial(s) for Item IDs
   if(w){walker=w.trim().toUpperCase().slice(0,3);localStorage.setItem('walker',walker);renderHdr();}}
 function renderHdr(){$('pWalker').textContent='Walker: '+(walker||'set →');}
 function saveZone(){localStorage.setItem('zone',$('zone').value);}
+async function completeRoom(){
+  const cur=$('zone').value.trim();
+  const n=await modalOpen('Completed '+(cur||'this room')+'. Enter the NEXT room / zone:',true,'');
+  if(n===null)return;
+  $('zone').value=n.trim();saveZone();
+  toast(n.trim()?('Now in: '+n.trim()):'Zone cleared — set it before the next item');
+}
+async function completeAndExport(){
+  const items=await getAll(SV);
+  if(!items.length){toast('No items to export yet');return;}
+  const ok=await modalOpen('Complete the list and export '+items.length+' item(s) as a zip (CSV + photos)?',false);
+  if(ok)doExport();
+}
 
 /* ---------- capture flow ---------- */
 async function startCapture(lib){
