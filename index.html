@@ -58,7 +58,8 @@
   .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#0d1b34;border:1px solid var(--ok);
          color:#cfe0ff;padding:10px 16px;border-radius:24px;z-index:30;opacity:0;transition:.25s;pointer-events:none}
   .toast.show{opacity:1}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
+  .mttl b{color:#cfe0ff}
   .mbox{background:var(--card);border:1px solid var(--blue);border-radius:14px;padding:18px;width:100%;max-width:420px}
   .mttl{font-size:16px;font-weight:600;margin-bottom:12px}
   .thumbs img{cursor:zoom-in}
@@ -185,8 +186,8 @@
   <div class="mttl" id="mTitle"></div>
   <input type="text" id="mInput" autocomplete="off" autocapitalize="characters" enterkeyhint="done" onkeydown="if(event.key==='Enter')modalDone(true)">
   <div class="navrow" style="margin-top:14px">
-    <button class="btn ghost" onclick="modalDone(false)">Cancel</button>
-    <button class="btn go" onclick="modalDone(true)">OK</button>
+    <button class="btn ghost" id="mCancel" onclick="modalDone(false)">Cancel</button>
+    <button class="btn go" id="mOk" onclick="modalDone(true)">OK</button>
   </div>
 </div></div>
 
@@ -251,8 +252,10 @@ const SEC_RULES=[
 function $(id){return document.getElementById(id)}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1600);}
 let _modalRes=null;
-function modalOpen(title,withInput,def){return new Promise(res=>{_modalRes=res;
-  $('mTitle').textContent=title;const inp=$('mInput');
+function modalOpen(title,withInput,def,opts){opts=opts||{};return new Promise(res=>{_modalRes=res;
+  const t=$('mTitle');if(opts.html)t.innerHTML=title;else t.textContent=title;
+  $('mOk').textContent=opts.okLabel||'OK';$('mCancel').textContent=opts.cancelLabel||'Cancel';
+  const inp=$('mInput');
   if(withInput){inp.classList.remove('hide');inp.value=def||'';}else inp.classList.add('hide');
   $('modal').classList.remove('hide');if(withInput)setTimeout(()=>inp.focus(),60);});}
 function modalDone(ok){const r=_modalRes;_modalRes=null;
@@ -549,6 +552,22 @@ function parseOcr(raw){
   lines.filter(l=>l.trim()).forEach(l=>{const d=document.createElement('div');d.className='chip';d.style.display='block';d.style.margin='4px 0';
     d.textContent=l.trim();d.onclick=()=>{if(lastField){lastField.value=(lastField.value?lastField.value+' ':'')+l.trim();lastField.dispatchEvent(new Event('input'));}};out.appendChild(d);});
   toast((cand?'MPN: '+cand:'No clear MPN')+(ser?' · SER '+ser:'')+(frn?' · FRN '+frn:''));
+  showReadConfirm();
+}
+async function showReadConfirm(){
+  const mpn=$('mpn').value.trim(),ser=$('series').value.trim(),fw=$('firmware').value.trim(),mfr=$('mfr').value.trim();
+  if(!mpn&&!ser&&!fw&&!mfr)return;   // nothing detected — nothing to confirm
+  const html='Read from the photo — is this right?<br><br>'+
+    'MPN: <b>'+(esc(mpn)||'—')+'</b><br>'+
+    'Series: <b>'+(esc(ser)||'—')+'</b><br>'+
+    'Firmware: <b>'+(esc(fw)||'—')+'</b><br>'+
+    'Manufacturer: <b>'+(esc(mfr)||'—')+'</b>';
+  const ok=await modalOpen(html,false,'',{html:true,okLabel:'✓ Looks good',cancelLabel:'✎ Edit'});
+  if(ok){closeLb();toast('Confirmed'+(mpn?' '+mpn:''));}
+  else{
+    if($('lightbox').classList.contains('hide')&&draft&&draft.photos[0])openLb(URL.createObjectURL(draft.photos[0]),true);
+    setTimeout(()=>{const f=$('lbMpn');if(f&&!$('lightbox').classList.contains('hide'))f.focus();else $('mpn').focus();},120);
+  }
 }
 
 /* ---------- photo lightbox (tap to enlarge + fill fields) ---------- */
