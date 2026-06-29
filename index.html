@@ -205,6 +205,7 @@
     <label>Firmware</label><input type="text" id="lbFw" autocomplete="off" enterkeyhint="next" placeholder="type firmware (blank if none)" oninput="$('firmware').value=this.value">
     <label>Manufacturer</label><input type="text" id="lbMfr" autocomplete="off" placeholder="type manufacturer" oninput="$('mfr').value=this.value">
     <button class="btn ghost" style="margin-top:10px" onclick="readPhoto()">📖 Re-read from photo</button>
+    <div id="lbOcrOut" class="ocrout hide"></div>
   </div>
 </div>
 
@@ -486,18 +487,39 @@ function focusField(dir){
   i=Math.max(0,Math.min(FIELD_ORDER.length-1,i+dir));
   const el=$(FIELD_ORDER[i]);if(el){el.focus();el.scrollIntoView({block:'center',behavior:'smooth'});}
 }
-document.addEventListener('focusin',e=>{if(['mpn','series','firmware','mfr','qty','fzone','notes'].includes(e.target.id))lastField=e.target;});
+document.addEventListener('focusin',e=>{if(['mpn','series','firmware','mfr','qty','fzone','notes','lbMpn','lbSeries','lbFw','lbMfr'].includes(e.target.id))lastField=e.target;});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&FIELD_ORDER.includes(e.target.id)&&e.target.tagName!=='TEXTAREA'){e.preventDefault();focusField(1);}});
 
 /* ---------- read MPN + secondary from photo (assist; needs signal) ---------- */
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+let _ocrWorker=null;
+function blobToImage(blob){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(blob);});}
+async function preprocess(file){            // upscale + grayscale + contrast for sharper OCR
+  const img=await blobToImage(file);
+  const mx=Math.max(img.width,img.height)||1;const scale=Math.min(2,1800/mx);
+  const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  x.drawImage(img,0,0,w,h);
+  try{const d=x.getImageData(0,0,w,h),a=d.data;
+    for(let i=0;i<a.length;i+=4){let g=0.299*a[i]+0.587*a[i+1]+0.114*a[i+2];g=(g-128)*1.5+135;g=g<0?0:g>255?255:g;a[i]=a[i+1]=a[i+2]=g;}
+    x.putImageData(d,0,0);}catch(e){}
+  return c;
+}
+async function getWorker(){
+  if(_ocrWorker)return _ocrWorker;
+  _ocrWorker=await Tesseract.createWorker('eng');
+  try{await _ocrWorker.setParameters({tessedit_pageseg_mode:'6'});}catch(e){}   // uniform block
+  return _ocrWorker;
+}
 async function readPhoto(){
   if(!draft||!draft.photos.length){toast('Take a photo first');return;}
-  const btn=$('ocrBtn'),old=btn.textContent;btn.textContent='Reading… (needs signal)';
+  const btn=$('ocrBtn'),old=btn.textContent;btn.textContent='Reading…';
   const h=$('lbHint');if(h&&!$('lightbox').classList.contains('hide'))h.innerHTML='📖 Reading the tag… (needs signal)';
   try{
     if(!window.Tesseract)await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
-    const {data}=await Tesseract.recognize(draft.photos[0],'eng');
+    const canvas=await preprocess(draft.photos[0]);
+    const worker=await getWorker();
+    const {data}=await worker.recognize(canvas);
     parseOcr(data.text||'');
   }catch(e){toast('No signal — photo saved; I’ll read it after the walk');
     if(h)h.innerHTML='No signal to auto-read — <b>type the fields</b>; I’ll read the photo after the walk.';}
@@ -510,7 +532,7 @@ function parseOcr(raw){
   const lines=T.split(/\n/);let cand='';
   const score=t=>t.length+((/\d/.test(t)&&/[A-Z]/.test(t))?6:0);
   for(const ln of lines){const key=/CAT|MODEL|PART|P\/?N|NO\.?|TYPE/.test(ln);
-    for(let t of (ln.match(/[A-Z0-9][A-Z0-9\-\/\.]{4,}/g)||[])){t=t.replace(/[.,]+$/,'');
+    for(let t of (ln.match(/[A-Z0-9][A-Z0-9\-\/\.]{4,}/g)||[])){t=t.replace(/^[^A-Z0-9]+|[^A-Z0-9]+$/g,'');
       if(!/\d/.test(t)||!/[A-Z]/.test(t))continue;
       if(!cand||score(t)+(key?10:0)>score(cand)+(/CAT|MODEL|PART|P\/?N/.test(cand)?10:0))cand=t;}}
   if(cand&&!$('mpn').value)$('mpn').value=cand;
@@ -521,10 +543,11 @@ function parseOcr(raw){
   mpnHint();
   if(!$('lightbox').classList.contains('hide')){$('lbMpn').value=$('mpn').value;$('lbSeries').value=$('series').value;$('lbFw').value=$('firmware').value;$('lbMfr').value=$('mfr').value;
     const h2=$('lbHint');if(h2)h2.innerHTML=(cand?'Auto-read done — <b>confirm or edit</b> below.':'Couldn’t auto-read a clear MPN — <b>type it</b> below.');}
-  const out=$('ocrOut');out.classList.remove('hide');
-  out.innerHTML='<div class="small">Tap any line to drop it into the field you’re editing:</div>';
+  const lbOpen=!$('lightbox').classList.contains('hide');
+  const out=lbOpen?$('lbOcrOut'):$('ocrOut');out.classList.remove('hide');
+  out.innerHTML='<div class="small">Tap a line to drop it into the field you’re editing (tap the field first):</div>';
   lines.filter(l=>l.trim()).forEach(l=>{const d=document.createElement('div');d.className='chip';d.style.display='block';d.style.margin='4px 0';
-    d.textContent=l.trim();d.onclick=()=>{if(lastField)lastField.value=(lastField.value?lastField.value+' ':'')+l.trim();};out.appendChild(d);});
+    d.textContent=l.trim();d.onclick=()=>{if(lastField){lastField.value=(lastField.value?lastField.value+' ':'')+l.trim();lastField.dispatchEvent(new Event('input'));}};out.appendChild(d);});
   toast((cand?'MPN: '+cand:'No clear MPN')+(ser?' · SER '+ser:'')+(frn?' · FRN '+frn:''));
 }
 
@@ -533,7 +556,9 @@ let _lbScale=1;
 function openLb(url,withFields){
   $('lbImg').src=url; lbFit();
   $('lbFields').classList.toggle('hide',!withFields);
-  if(withFields){$('lbMpn').value=$('mpn').value;$('lbSeries').value=$('series').value;$('lbFw').value=$('firmware').value;$('lbMfr').value=$('mfr').value;}
+  const o=$('lbOcrOut');if(o){o.classList.add('hide');o.innerHTML='';}
+  if(withFields){$('lbMpn').value=$('mpn').value;$('lbSeries').value=$('series').value;$('lbFw').value=$('firmware').value;$('lbMfr').value=$('mfr').value;
+    const hh=$('lbHint');if(hh)hh.innerHTML='The app auto-reads the tag and fills the fields below — <b>confirm or edit</b>. Pinch / ＋ / double-tap to zoom.';}
   $('lightbox').classList.remove('hide');
 }
 function reviewAfterCapture(){const f=draft.photos[0];if(!f)return;openLb(URL.createObjectURL(f),true);readPhoto();/* auto-read any picture */}
