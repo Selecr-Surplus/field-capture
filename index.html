@@ -190,12 +190,12 @@
   </div>
   <div class="lbimgwrap" id="lbWrap"><img id="lbImg" ondblclick="lbToggle()"></div>
   <div class="lbfields hide" id="lbFields">
-    <div class="small">Compare the tag above to the MPN, then add the <b>Series + Firmware (secondary ID)</b>. Pinch / ＋ / double-tap to zoom.</div>
-    <button class="btn ghost" style="margin:8px 0" onclick="readPhoto()">📖 Read MPN / Series / Firmware from photo</button>
-    <label>MPN</label><input type="text" id="lbMpn" autocapitalize="characters" autocomplete="off" oninput="$('mpn').value=this.value;mpnHint()">
-    <label>Series</label><input type="text" id="lbSeries" autocapitalize="characters" autocomplete="off" oninput="$('series').value=this.value">
-    <label>Firmware</label><input type="text" id="lbFw" autocomplete="off" oninput="$('firmware').value=this.value">
-    <label>Manufacturer</label><input type="text" id="lbMfr" autocomplete="off" oninput="$('mfr').value=this.value">
+    <div class="small">Read the tag above, then <b>type the MPN</b> (or tap Read to auto-fill), and add the <b>Series + Firmware (secondary ID)</b>. Pinch / ＋ / double-tap to zoom.</div>
+    <label>MPN — type it</label><input type="text" id="lbMpn" autocapitalize="characters" autocomplete="off" enterkeyhint="next" placeholder="type the part number from the tag" oninput="$('mpn').value=this.value;mpnHint()">
+    <label>Series</label><input type="text" id="lbSeries" autocapitalize="characters" autocomplete="off" enterkeyhint="next" placeholder="type series (blank if none)" oninput="$('series').value=this.value">
+    <label>Firmware</label><input type="text" id="lbFw" autocomplete="off" enterkeyhint="next" placeholder="type firmware (blank if none)" oninput="$('firmware').value=this.value">
+    <label>Manufacturer</label><input type="text" id="lbMfr" autocomplete="off" placeholder="type manufacturer" oninput="$('mfr').value=this.value">
+    <button class="btn ghost" style="margin-top:10px" onclick="readPhoto()">📖 Or auto-fill from photo (needs signal)</button>
   </div>
 </div>
 
