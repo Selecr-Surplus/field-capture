@@ -342,11 +342,7 @@ function renderThumbs(){
   draft.photos.forEach(f=>{const u=URL.createObjectURL(f);const i=new Image();i.src=u;i.onclick=()=>openLb(u,true);t.appendChild(i);});
 }
 function pickCond(el){[...el.parentNode.children].forEach(c=>c.classList.remove('sel'));el.classList.add('sel');draft.cond=el.dataset.v;}
-function mpnHint(){
-  const s=($('mpn').value+' '+$('mfr').value);let hit=null;
-  for(const r of SEC_RULES){if(r.re.test(s)){hit=r.msg;break;}}
-  const b=$('secBanner');if(hit){b.textContent='⚠ '+hit;b.classList.add('show');}else b.classList.remove('show');
-}
+function mpnHint(){const b=$('secBanner');if(b)b.classList.remove('show');}  // reminder banner removed
 
 /* ---------- GPS (Location 2, always) ---------- */
 function acquireGps(){
