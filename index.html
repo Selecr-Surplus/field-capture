@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1F3864">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Field Capture">
+<title>Select Surplus — Field Capture</title>
+<style>
+  :root{ --navy:#1F3864; --blue:#2E75B6; --bg:#0f1115; --card:#1b1f27; --line:#2c313c;
+         --txt:#eef1f6; --mut:#9aa3b2; --ok:#2faf5a; --warn:#e6a700; --bad:#e0533d; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 -apple-system,system-ui,Segoe UI,Arial,sans-serif}
+  body{padding:0 0 120px}
+  header{position:sticky;top:0;z-index:20;background:var(--navy);padding:10px 14px;
+         border-bottom:2px solid var(--blue);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  header .ttl{font-weight:700;font-size:15px;flex:1 1 auto}
+  header .pill{background:#0d1b34;border:1px solid #3a4d74;border-radius:20px;padding:5px 10px;font-size:13px;color:#cfe0ff}
+  .wrap{padding:14px;max-width:680px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+  label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px;font-weight:600;letter-spacing:.02em}
+  input[type=text],input[type=number],textarea,select{
+    width:100%;background:#0e1219;border:1.5px solid var(--line);color:var(--txt);
+    border-radius:10px;padding:13px;font-size:17px;outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+  textarea{min-height:54px;resize:vertical}
+  .req label::after{content:" *";color:var(--bad)}
+  .miss input,.miss select,.miss textarea,.miss .chips{border-color:var(--bad) !important;box-shadow:0 0 0 2px rgba(224,83,61,.25)}
+  .btn{appearance:none;border:0;border-radius:12px;padding:15px 16px;font-size:17px;font-weight:700;color:#fff;width:100%}
+  .btn.primary{background:var(--blue)} .btn.go{background:var(--ok)} .btn.ghost{background:#2a2f3a}
+  .btn.warn{background:var(--bad)} .btn:active{filter:brightness(.9)}
+  .row{display:flex;gap:10px} .row>*{flex:1}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;background:#0e1219;border:1.5px solid var(--line);border-radius:10px;padding:8px}
+  .chip{padding:10px 12px;border-radius:9px;background:#222836;border:1px solid #333a48;font-size:15px}
+  .chip.sel{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
+  .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .thumbs img{width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+  .gps{font-size:13px;padding:8px 10px;border-radius:8px;background:#0e1219;border:1px solid var(--line)}
+  .gps.ok{border-color:var(--ok);color:#bfe9cf} .gps.wait{border-color:var(--warn);color:#f0dca0} .gps.bad{border-color:var(--bad);color:#f3c4ba}
+  .hint{font-size:12.5px;color:var(--mut);margin-top:4px}
+  .banner{background:#3a2f12;border:1px solid var(--warn);color:#f0dca0;border-radius:10px;padding:10px;font-size:13.5px;margin-top:8px;display:none}
+  .banner.show{display:block}
+  .fab{position:fixed;left:0;right:0;bottom:0;padding:12px 14px;background:linear-gradient(transparent,rgba(15,17,21,.92) 30%);z-index:15}
+  .fab .btn{box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  .item{display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:10px 0}
+  .item img{width:54px;height:54px;border-radius:8px;object-fit:cover}
+  .item .m{flex:1;min-width:0}
+  .item .m b{font-size:15px} .item .m div{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:20px;background:#222836;color:#cfd6e3;margin-right:4px}
+  .hide{display:none !important}
+  .navrow{display:flex;gap:8px;margin-bottom:8px}
+  .ocrout{margin-top:8px;max-height:200px;overflow:auto;background:#0e1219;border:1px solid var(--line);border-radius:10px;padding:8px}
+  .small{font-size:12.5px;color:var(--mut)}
+  .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#0d1b34;border:1px solid var(--ok);
+         color:#cfe0ff;padding:10px 16px;border-radius:24px;z-index:30;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
+  .mbox{background:var(--card);border:1px solid var(--blue);border-radius:14px;padding:18px;width:100%;max-width:420px}
+  .mttl{font-size:16px;font-weight:600;margin-bottom:12px}
+  h2{font-size:16px;margin:4px 0 2px}
+  .zonebar{display:flex;gap:8px;align-items:center}
+  .zonebar input{font-size:16px;padding:10px}
+</style>
+</head>
+<body>
+<header>
+  <span class="ttl">Select Surplus · Field Capture</span>
+  <span class="pill" id="pWalker" onclick="setWalker()">Walker: —</span>
+  <span class="pill" id="pCount">0 items</span>
+  <span class="pill" onclick="showList()">List</span>
+  <span class="pill" onclick="doExport()">Export</span>
+</header>
+
+<div class="wrap" id="home">
+  <div class="card">
+    <h2>Current Zone — Location 1</h2>
+    <div class="zonebar">
+      <input type="text" id="zone" placeholder="e.g. MCC-2, Boiler Rm, North Bay" enterkeyhint="done" oninput="saveZone()" onkeydown="if(event.key==='Enter'){this.blur();toast('Zone set');}">
+      <button class="btn ghost" style="width:auto;padding:10px 16px" onclick="document.getElementById('zone').blur();toast('Zone set')">Set</button>
+    </div>
+    <div class="hint">Sticky — carries to every new item until you change it. Tip: also snap a photo of the room sign / a “ZONE A” card when you enter a new area.</div>
+  </div>
+
+  <button class="btn go" style="font-size:20px;padding:20px" onclick="startCapture()">📷 New Item — take photo</button>
+  <button class="btn ghost" style="margin-top:10px" onclick="startCapture(true)">🖼 New Item — from library</button>
+  <div class="small" style="text-align:center;margin-top:10px">Photo → fill the fields → the app won’t let you save until pricing data is captured.</div>
+
+  <div class="card" id="recent"></div>
+</div>
+
+<!-- CAPTURE FORM -->
+<div class="wrap hide" id="form">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2 id="fTitle">New Item</h2>
+      <button class="btn ghost" style="width:auto;padding:8px 14px" onclick="cancelForm()">Cancel</button>
+    </div>
+
+    <div class="req" id="wPhoto">
+      <label>Photos (nameplate first) *</label>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="navrow" style="margin-top:8px"><button class="btn ghost" onclick="addPhoto()">📷 Add photo</button><button class="btn ghost" onclick="addPhoto(true)">🖼 From library</button></div>
+      <div class="hint">Shoot the nameplate close enough to read the fine print — it preserves every secondary ID even if you don’t type it.</div>
+    </div>
+
+    <div class="req" id="wMpn">
+      <label>MPN (primary part number)</label>
+      <input type="text" id="mpn" autocapitalize="characters" autocomplete="off" enterkeyhint="next" oninput="mpnHint()">
+      <div class="banner" id="secBanner"></div>
+      <button class="btn ghost" id="ocrBtn" style="margin-top:8px" onclick="readPhoto()">📖 Read MPN / secondary from photo</button>
+      <div class="hint">Pre-fills from the nameplate for you to confirm (needs signal). Offline is fine — I read every photo accurately after the walk.</div>
+      <div id="ocrOut" class="ocrout hide"></div>
+    </div>
+
+    <label>Manufacturer</label>
+    <input type="text" id="mfr" autocomplete="off" placeholder="Allen-Bradley, Siemens, Square D…">
+
+    <div class="row">
+      <div class="req" id="wQty"><label>Quantity</label><input type="number" id="qty" inputmode="numeric" value="1" min="1"></div>
+      <div class="req" id="wCond" style="flex:2">
+        <label>Condition</label>
+        <select id="cond">
+          <option value="">— choose —</option>
+          <option>New / In-crate</option>
+          <option>Open-box</option>
+          <option>Used / Take-out</option>
+          <option>Parts / As-is</option>
+          <option>Unknown</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="req" id="wSec">
+      <label>Secondary IDs — series / firmware / voltage / amp / serial / date code</label>
+      <input type="text" id="secids" placeholder="e.g. SER C, FRN 30.011, 480V, 30A" enterkeyhint="next" autocomplete="off">
+      <label style="margin-top:8px">Secondary-ID check (required)</label>
+      <div class="chips" id="secStatus">
+        <span class="chip" data-v="typed" onclick="pickSec(this)">Typed above</span>
+        <span class="chip" data-v="photo" onclick="pickSec(this)">In nameplate photo</span>
+        <span class="chip" data-v="na" onclick="pickSec(this)">N/A for this part</span>
+      </div>
+      <div class="hint">Forces a conscious decision so a price-moving ID is never missed.</div>
+    </div>
+
+    <div class="req" id="wZone"><label>Location 1 — Zone</label><input type="text" id="fzone" enterkeyhint="next"></div>
+
+    <label>Location 2 — GPS (automatic)</label>
+    <div class="gps wait" id="gpsBox">📍 acquiring…</div>
+
+    <label>Notes</label>
+    <textarea id="notes" placeholder="in panel, mounting, damage, etc."></textarea>
+  </div>
+</div>
+
+<!-- LIST -->
+<div class="wrap hide" id="list">
+  <div class="card"><div style="display:flex;justify-content:space-between"><h2>Captured items</h2>
+    <button class="btn ghost" style="width:auto;padding:8px 14px" onclick="showHome()">Done</button></div>
+    <div id="listBody"></div>
+  </div>
+</div>
+
+<div class="fab hide" id="saveBar">
+  <div class="navrow"><button class="btn ghost" onclick="focusField(-1)">◂ Prev field</button><button class="btn ghost" onclick="focusField(1)">Next field ▸</button></div>
+  <button class="btn go" onclick="saveItem(true)">✓ Save &amp; Next item</button>
+  <button class="btn ghost" style="margin-top:8px" onclick="saveItem(false)">Save &amp; finish</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="modal hide" id="modal"><div class="mbox">
+  <div class="mttl" id="mTitle"></div>
+  <input type="text" id="mInput" autocomplete="off" autocapitalize="characters" enterkeyhint="done" onkeydown="if(event.key==='Enter')modalDone(true)">
+  <div class="navrow" style="margin-top:14px">
+    <button class="btn ghost" onclick="modalDone(false)">Cancel</button>
+    <button class="btn go" onclick="modalDone(true)">OK</button>
+  </div>
+</div></div>
+
+<input type="file" id="cam" accept="image/*" capture="environment" class="hide" onchange="onPhoto(event)">
+<input type="file" id="gal" accept="image/*" multiple class="hide" onchange="onPhoto(event)">
+
+<script>
+/* ---------- tiny IndexedDB ---------- */
+const DB='ssfield', SV='items', SP='photos';
+let db, MEM=false; const mem={items:{},photos:{}};
+function idb(){return new Promise((res,rej)=>{try{
+  const r=indexedDB.open(DB,1);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    if(!d.objectStoreNames.contains(SV))d.createObjectStore(SV,{keyPath:'itemId'});
+    if(!d.objectStoreNames.contains(SP))d.createObjectStore(SP,{keyPath:'key'});};
+  r.onsuccess=e=>{db=e.target.result;res(db)};r.onerror=e=>rej(e);r.onblocked=()=>rej('blocked');
+}catch(e){rej(e);}});}
+function tx(store,mode){return db.transaction(store,mode).objectStore(store);}
+function put(store,val){if(MEM){mem[store][val.key||val.itemId]=val;return Promise.resolve();}
+  return new Promise((res,rej)=>{const r=tx(store,'readwrite').put(val);r.onsuccess=()=>res();r.onerror=rej;});}
+function getAll(store){if(MEM)return Promise.resolve(Object.values(mem[store]));
+  return new Promise((res,rej)=>{const r=tx(store,'readonly').getAll();r.onsuccess=()=>res(r.result);r.onerror=rej;});}
+function del(store,key){if(MEM){delete mem[store][key];return Promise.resolve();}
+  return new Promise((res,rej)=>{const r=tx(store,'readwrite').delete(key);r.onsuccess=()=>res();r.onerror=rej;});}
+
+/* ---------- state ---------- */
+let walker=localStorage.getItem('walker')||'';
+let seq=+(localStorage.getItem('seq')||0);
+let draft=null;            // current form draft
+let curGps=null;
+const PREVIEW=(()=>{try{return window.self!==window.top}catch(e){return true}})()||!window.isSecureContext;
+
+/* ---------- secondary-ID prompts ---------- */
+const SEC_RULES=[
+  {re:/allen|rockwell|\bab\b|^17|^20|^21|^22|^25|^50|^17\d{2}|^56\d{2}/i, msg:'Allen-Bradley/Rockwell — capture SERIES + FIRMWARE (FRN); they move price a lot.'},
+  {re:/breaker|trip|\bLSI|\bLSIG|powerpact|masterpact|spectra|\bMCCB/i, msg:'Breaker — the trip unit / rating plug is a SEPARATE part #. Grab amp + voltage + interrupt rating.'},
+  {re:/contactor|starter|overload|\bIEC\b/i, msg:'Contactor/Starter — note coil voltage + overload range + aux contacts.'},
+  {re:/drive|vfd|powerflex|micromaster|\bACS\b|inverter/i, msg:'Drive/VFD — capture firmware, voltage class, HP, and any option cards.'},
+];
+
+/* ---------- helpers ---------- */
+function $(id){return document.getElementById(id)}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1600);}
+let _modalRes=null;
+function modalOpen(title,withInput,def){return new Promise(res=>{_modalRes=res;
+  $('mTitle').textContent=title;const inp=$('mInput');
+  if(withInput){inp.classList.remove('hide');inp.value=def||'';}else inp.classList.add('hide');
+  $('modal').classList.remove('hide');if(withInput)setTimeout(()=>inp.focus(),60);});}
+function modalDone(ok){const r=_modalRes;_modalRes=null;
+  const hasInput=!$('mInput').classList.contains('hide');$('modal').classList.add('hide');
+  if(!r)return;r(hasInput?(ok?$('mInput').value:null):ok);}
+async function setWalker(){const w=await modalOpen('Your initial(s) for Item IDs (J for Jason, A for Aaron):',true,walker||'');
+  if(w){walker=w.trim().toUpperCase().slice(0,3);localStorage.setItem('walker',walker);renderHdr();}}
+function renderHdr(){$('pWalker').textContent='Walker: '+(walker||'set →');}
+function saveZone(){localStorage.setItem('zone',$('zone').value);}
+
+/* ---------- capture flow ---------- */
+async function startCapture(lib){
+  if(!walker){await setWalker();if(!walker)return;}
+  if(!$('zone').value.trim()){toast('Enter the current Zone first');$('zone').focus();return;}
+  draft={photos:[],secStatus:''};curGps=null;
+  if(PREVIEW){await addTestPhoto();return;}                    // preview iframe has no real camera
+  const inp=lib?$('gal'):$('cam');inp.value='';inp.click();    // camera or library
+}
+async function addPhoto(lib){
+  if(PREVIEW){await addTestPhoto();return;}
+  const inp=lib?$('gal'):$('cam');inp.value='';inp.click();
+}
+async function addTestPhoto(){
+  draft.photos.push(await makeTestPhoto());
+  if($('form').classList.contains('hide')) openForm();
+  renderThumbs(); acquireGps();
+  toast('Preview: test photo added (real camera works once deployed)');
+}
+function makeTestPhoto(){return new Promise(res=>{
+  const c=document.createElement('canvas');c.width=640;c.height=420;const x=c.getContext('2d');
+  x.fillStyle='#1F3864';x.fillRect(0,0,640,420);x.fillStyle='#cfe0ff';x.font='bold 34px Arial';
+  x.fillText('TEST PHOTO',210,200);x.font='18px Arial';x.fillStyle='#9aa3b2';
+  x.fillText('preview mode — '+new Date().toLocaleTimeString(),175,248);
+  c.toBlob(b=>res(b||new Blob(['x'],{type:'image/jpeg'})),'image/jpeg',0.85);
+});}
+function onPhoto(e){
+  const files=e.target.files;if(!files||!files.length)return;
+  for(const f of files){if(f&&(!f.type||f.type.indexOf('image')===0))draft.photos.push(f);}
+  if($('form').classList.contains('hide')) openForm();   // first photo opens the form
+  renderThumbs();
+  acquireGps();
+  e.target.value='';
+}
+function openForm(){
+  $('home').classList.add('hide');$('list').classList.add('hide');
+  $('form').classList.remove('hide');$('saveBar').classList.remove('hide');
+  $('fTitle').textContent='New Item · '+walker+'-'+String(seq+1).padStart(3,'0');
+  $('mpn').value='';$('mfr').value='';$('qty').value='1';$('cond').value='';
+  $('secids').value='';$('notes').value='';$('secBanner').classList.remove('show');
+  $('fzone').value=$('zone').value;
+  [...document.querySelectorAll('#secStatus .chip')].forEach(c=>c.classList.remove('sel'));
+  $('ocrOut').classList.add('hide');$('ocrOut').innerHTML='';
+  clearMiss();window.scrollTo(0,0);
+  setTimeout(()=>$('mpn').focus(),120);
+}
+function renderThumbs(){
+  const t=$('thumbs');t.innerHTML='';
+  draft.photos.forEach(f=>{const u=URL.createObjectURL(f);const i=new Image();i.src=u;t.appendChild(i);});
+}
+function pickSec(el){[...el.parentNode.children].forEach(c=>c.classList.remove('sel'));el.classList.add('sel');draft.secStatus=el.dataset.v;}
+function mpnHint(){
+  const s=($('mpn').value+' '+$('mfr').value);let hit=null;
+  for(const r of SEC_RULES){if(r.re.test(s)){hit=r.msg;break;}}
+  const b=$('secBanner');if(hit){b.textContent='⚠ '+hit;b.classList.add('show');}else b.classList.remove('show');
+}
+
+/* ---------- GPS (Location 2, always) ---------- */
+function acquireGps(){
+  const box=$('gpsBox');box.className='gps wait';box.textContent='📍 acquiring…';
+  if(!navigator.geolocation){box.className='gps bad';box.textContent='GPS unavailable on this device';curGps={err:'no-geo'};return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>{curGps={lat:+p.coords.latitude.toFixed(6),lng:+p.coords.longitude.toFixed(6),acc:Math.round(p.coords.accuracy),t:new Date(p.timestamp).toISOString()};
+        box.className='gps ok';box.textContent='📍 '+curGps.lat+', '+curGps.lng+'  (±'+curGps.acc+'m)';},
+    e=>{curGps={err:e.message||'denied'};box.className='gps bad';box.textContent='📍 no fix ('+(e.message||'denied')+') — indoors is normal; Zone covers it';},
+    {enableHighAccuracy:true,timeout:9000,maximumAge:20000});
+}
+
+/* ---------- the GATE + save ---------- */
+function clearMiss(){['wPhoto','wMpn','wQty','wCond','wSec','wZone'].forEach(id=>$(id).classList.remove('miss'));}
+function saveItem(next){
+  clearMiss();const miss=[];
+  if(draft.photos.length===0){$('wPhoto').classList.add('miss');miss.push('photo');}
+  if(!$('mpn').value.trim()){$('wMpn').classList.add('miss');miss.push('MPN');}
+  if(!(+$('qty').value>0)){$('wQty').classList.add('miss');miss.push('quantity');}
+  if(!$('cond').value){$('wCond').classList.add('miss');miss.push('condition');}
+  if(!draft.secStatus){$('wSec').classList.add('miss');miss.push('secondary-ID check');}
+  if(draft.secStatus==='typed' && !$('secids').value.trim()){$('wSec').classList.add('miss');miss.push('secondary IDs');}
+  if(!$('fzone').value.trim()){$('wZone').classList.add('miss');miss.push('zone');}
+  if(miss.length){toast('Need: '+miss.join(', '));const m=document.querySelector('.miss');if(m)m.scrollIntoView({behavior:'smooth',block:'center'});return;}
+
+  seq+=1;localStorage.setItem('seq',seq);
+  const itemId=walker+'-'+String(seq).padStart(3,'0');
+  const rec={itemId,walker,seq,createdAt:new Date().toISOString(),
+    mpn:$('mpn').value.trim(),mfr:$('mfr').value.trim(),qty:+$('qty').value,
+    cond:$('cond').value,secids:$('secids').value.trim(),secStatus:draft.secStatus,
+    zone:$('fzone').value.trim(),notes:$('notes').value.trim(),
+    gps:curGps||{err:'none'},photoNames:[]};
+  const photoPuts=[];
+  draft.photos.forEach((f,i)=>{const name=itemId+'_'+(i+1)+'.jpg';rec.photoNames.push(name);
+    photoPuts.push(put(SP,{key:name,itemId,blob:f}));});
+  Promise.all([put(SV,rec),...photoPuts]).then(()=>{
+    toast('Saved '+itemId);draft=null;refresh();
+    showHome();                       // hide the form so the next item resets cleanly
+    if(next)startCapture();           // then reopen the camera for the next item
+  }).catch(e=>{alert('Save failed: '+e);});
+}
+function cancelForm(){draft=null;showHome();}
+
+/* ---------- views ---------- */
+function showHome(){$('form').classList.add('hide');$('list').classList.add('hide');$('saveBar').classList.add('hide');$('home').classList.remove('hide');}
+function showList(){getAll(SV).then(items=>{items.sort((a,b)=>a.createdAt<b.createdAt?1:-1);
+  const b=$('listBody');b.innerHTML=items.length?'':'<div class="small">No items yet.</div>';
+  items.forEach(it=>renderItemRow(b,it,true));
+  $('home').classList.add('hide');$('form').classList.add('hide');$('list').classList.remove('hide');});}
+async function renderItemRow(parent,it,withDel){
+  const div=document.createElement('div');div.className='item';
+  const ph=await getPhoto(it.photoNames[0]);
+  const img=new Image();if(ph)img.src=URL.createObjectURL(ph.blob);
+  const sec=it.secStatus==='typed'?it.secids:(it.secStatus==='photo'?'in photo':'N/A');
+  div.appendChild(img);
+  const m=document.createElement('div');m.className='m';
+  m.innerHTML='<b>'+it.itemId+' · '+esc(it.mpn)+'</b>'+
+    '<div><span class="tag">'+esc(it.cond)+'</span><span class="tag">qty '+it.qty+'</span><span class="tag">'+esc(it.zone)+'</span></div>'+
+    '<div>sec: '+esc(sec)+(it.gps&&it.gps.lat?(' · 📍'+it.gps.lat+','+it.gps.lng):' · 📍none')+'</div>';
+  div.appendChild(m);
+  if(withDel){const d=document.createElement('button');d.className='btn warn';d.style.width='auto';d.style.padding='8px 12px';d.textContent='✕';
+    d.onclick=async()=>{if(await modalOpen('Delete '+it.itemId+'?',false))Promise.all([del(SV,it.itemId),...it.photoNames.map(n=>del(SP,n))]).then(()=>{showList();refresh();});};
+    div.appendChild(d);}
+  parent.appendChild(div);
+}
+function getPhoto(name){if(MEM)return Promise.resolve(mem.photos[name]||null);
+  return new Promise(res=>{const r=tx(SP,'readonly').get(name);r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);});}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+async function refresh(){const items=await getAll(SV);$('pCount').textContent=items.length+' items';
+  items.sort((a,b)=>a.createdAt<b.createdAt?1:-1);
+  const r=$('recent');r.innerHTML='<h2>Recent</h2>';if(!items.length){r.innerHTML+='<div class="small">Nothing yet — tap “New Item”.</div>';return;}
+  for(const it of items.slice(0,5))await renderItemRow(r,it,false);}
+
+/* ---------- CSV + ZIP export (store-only zip, no deps) ---------- */
+function csvCell(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+async function buildCsv(){
+  const items=await getAll(SV);items.sort((a,b)=>a.itemId<b.itemId?-1:1);
+  const head=['Item ID','Walker','Created','MPN','Manufacturer','Qty','Condition','Secondary IDs','Sec-ID status','Location1 Zone','Location2 Lat','Location2 Lng','GPS acc (m)','GPS time','Notes','Photos'];
+  const rows=[head.join(',')];
+  for(const it of items){const g=it.gps||{};
+    rows.push([it.itemId,it.walker,it.createdAt,it.mpn,it.mfr,it.qty,it.cond,it.secids,it.secStatus,
+      it.zone,g.lat||'',g.lng||'',g.acc||'',g.t||'',it.notes,it.photoNames.join(' | ')].map(csvCell).join(','));}
+  return rows.join('\r\n');
+}
+const crcTable=(()=>{let t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=(c>>>8)^crcTable[(c^u8[i])&0xFF];return (c^0xFFFFFFFF)>>>0;}
+function u16(n){return [n&255,(n>>8)&255];}function u32(n){return [n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];}
+async function buildZip(files){ // files:[{name,u8}]
+  const parts=[],central=[];let offset=0;const enc=new TextEncoder();
+  for(const f of files){const nb=enc.encode(f.name);const crc=crc32(f.u8);
+    const lh=[].concat(u32(0x04034b50),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(f.u8.length),u32(f.u8.length),u16(nb.length),u16(0));
+    const lhU=new Uint8Array(lh);parts.push(lhU,nb,f.u8);
+    const cd=[].concat(u32(0x02014b50),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(f.u8.length),u32(f.u8.length),u16(nb.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset));
+    central.push(new Uint8Array(cd),nb);
+    offset+=lhU.length+nb.length+f.u8.length;}
+  let cSize=0;central.forEach(p=>cSize+=p.length);
+  const eocd=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cSize),u32(offset),u16(0)));
+  return new Blob([...parts,...central,eocd],{type:'application/zip'});
+}
+async function doExport(){
+  const items=await getAll(SV);if(!items.length){toast('Nothing to export yet');return;}
+  toast('Building export…');
+  const csv=await buildCsv();const files=[{name:'capture_'+(walker||'X')+'.csv',u8:new TextEncoder().encode(csv)}];
+  const photos=await getAll(SP);
+  for(const p of photos){const ab=await p.blob.arrayBuffer();files.push({name:'photos/'+p.key,u8:new Uint8Array(ab)});}
+  const zip=await buildZip(files);
+  const stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  const a=document.createElement('a');a.href=URL.createObjectURL(zip);
+  a.download='FieldCapture_'+(walker||'X')+'_'+stamp+'.zip';document.body.appendChild(a);a.click();a.remove();
+}
+
+/* ---------- field-to-field navigation ---------- */
+const FIELD_ORDER=['mpn','mfr','qty','cond','secids','fzone','notes'];
+let lastField=null;
+function focusField(dir){
+  const cur=document.activeElement;let i=FIELD_ORDER.indexOf(cur&&cur.id);
+  if(i<0)i=(dir>0?-1:FIELD_ORDER.length);
+  i=Math.max(0,Math.min(FIELD_ORDER.length-1,i+dir));
+  const el=$(FIELD_ORDER[i]);if(el){el.focus();el.scrollIntoView({block:'center',behavior:'smooth'});}
+}
+document.addEventListener('focusin',e=>{if(['mpn','mfr','qty','secids','fzone','notes'].includes(e.target.id))lastField=e.target;});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&FIELD_ORDER.includes(e.target.id)&&e.target.tagName!=='TEXTAREA'){e.preventDefault();focusField(1);}});
+
+/* ---------- read MPN + secondary from photo (assist; needs signal) ---------- */
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+async function readPhoto(){
+  if(!draft||!draft.photos.length){toast('Take a photo first');return;}
+  const btn=$('ocrBtn'),old=btn.textContent;btn.textContent='Reading… (needs signal)';
+  try{
+    if(!window.Tesseract)await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+    const {data}=await Tesseract.recognize(draft.photos[0],'eng');
+    parseOcr(data.text||'');
+  }catch(e){toast('No signal — photo saved; I’ll read it after the walk');}
+  btn.textContent=old;
+}
+function parseOcr(raw){
+  const T=raw.toUpperCase();
+  const ser=(T.match(/SER(?:IES)?\.?\s*[:\-]?\s*([A-Z])\b/)||[])[1];
+  const frn=(T.match(/FR[NM]\.?\s*[:\-]?\s*([0-9][0-9.]*)/)||T.match(/F\/?W\.?\s*[:\-]?\s*([0-9][0-9.]*)/)||[])[1];
+  const lines=T.split(/\n/);let cand='';
+  const score=t=>t.length+((/\d/.test(t)&&/[A-Z]/.test(t))?6:0);
+  for(const ln of lines){const key=/CAT|MODEL|PART|P\/?N|NO\.?|TYPE/.test(ln);
+    for(let t of (ln.match(/[A-Z0-9][A-Z0-9\-\/\.]{4,}/g)||[])){t=t.replace(/[.,]+$/,'');
+      if(!/\d/.test(t)||!/[A-Z]/.test(t))continue;
+      if(!cand||score(t)+(key?10:0)>score(cand)+(/CAT|MODEL|PART|P\/?N/.test(cand)?10:0))cand=t;}}
+  if(cand&&!$('mpn').value)$('mpn').value=cand;
+  const add=[];if(ser)add.push('SER '+ser);if(frn)add.push('FRN '+frn);
+  if(add.length){const ex=$('secids').value;$('secids').value=(ex?ex+' · ':'')+add.join(' ');
+    const c=[...document.querySelectorAll('#secStatus .chip')].find(x=>x.dataset.v==='typed');if(c)pickSec(c);}
+  mpnHint();
+  const out=$('ocrOut');out.classList.remove('hide');
+  out.innerHTML='<div class="small">Tap any line to drop it into the field you’re editing:</div>';
+  lines.filter(l=>l.trim()).forEach(l=>{const d=document.createElement('div');d.className='chip';d.style.display='block';d.style.margin='4px 0';
+    d.textContent=l.trim();d.onclick=()=>{if(lastField)lastField.value=(lastField.value?lastField.value+' ':'')+l.trim();};out.appendChild(d);});
+  toast((cand?'MPN: '+cand:'No clear MPN')+(add.length?' · '+add.join(' '):''));
+}
+
+/* ---------- boot ---------- */
+function start(){
+  renderHdr();
+  $('zone').value=localStorage.getItem('zone')||'';
+  if(PREVIEW||MEM)toast('Preview mode — test photos only; deploy to phone for real camera/GPS + saving');
+  if(!walker)setTimeout(setWalker,400);
+  refresh();
+}
+idb().then(start).catch(()=>{MEM=true;start();});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>
