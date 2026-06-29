@@ -235,6 +235,7 @@ let walker=localStorage.getItem('walker')||'';
 let seq=+(localStorage.getItem('seq')||0);
 let draft=null;            // current form draft
 let curGps=null;
+let editingId=null, editingOrig=null;   // set when editing a saved item
 const PREVIEW=(()=>{try{return window.self!==window.top}catch(e){return true}})()||!window.isSecureContext;
 
 /* ---------- secondary-ID prompts ---------- */
@@ -364,23 +365,45 @@ function saveItem(next){
   if(!$('fzone').value.trim()){$('wZone').classList.add('miss');miss.push('zone');}
   if(miss.length){toast('Need: '+miss.join(', '));const m=document.querySelector('.miss');if(m)m.scrollIntoView({behavior:'smooth',block:'center'});return;}
 
-  seq+=1;localStorage.setItem('seq',seq);
-  const itemId=walker+'-'+String(seq).padStart(3,'0');
-  const rec={itemId,walker,seq,createdAt:new Date().toISOString(),
+  const editing=!!editingId;
+  let itemId;
+  if(editing){itemId=editingId;}
+  else{seq+=1;localStorage.setItem('seq',seq);itemId=walker+'-'+String(seq).padStart(3,'0');}
+  const rec={itemId,
+    walker:editing?(editingOrig.walker||walker):walker,
+    seq:editing?editingOrig.seq:seq,
+    createdAt:editing?(editingOrig.createdAt||new Date().toISOString()):new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
     mpn:$('mpn').value.trim(),mfr:$('mfr').value.trim(),qty:+$('qty').value,
     cond:draft.cond,series:$('series').value.trim(),firmware:$('firmware').value.trim(),
     zone:$('fzone').value.trim(),notes:$('notes').value.trim(),
-    gps:curGps||{err:'none'},photoNames:[]};
+    gps:curGps||(editing?editingOrig.gps:null)||{err:'none'},photoNames:[]};
   const photoPuts=[];
   draft.photos.forEach((f,i)=>{const name=itemId+'_'+(i+1)+'.jpg';rec.photoNames.push(name);
     photoPuts.push(put(SP,{key:name,itemId,blob:f}));});
+  if(editing){const keep=new Set(rec.photoNames);for(const old of (editingOrig.photoNames||[])){if(!keep.has(old))photoPuts.push(del(SP,old));}}
   Promise.all([put(SV,rec),...photoPuts]).then(()=>{
-    toast('Saved '+itemId);draft=null;refresh();
-    showHome();                       // hide the form so the next item resets cleanly
-    if(next)startCapture();           // then reopen the camera for the next item
+    const wasEditing=editing;
+    toast((wasEditing?'Updated ':'Saved ')+itemId);
+    draft=null;editingId=null;editingOrig=null;refresh();
+    if(wasEditing){showList();}        // back to the list after an edit
+    else{showHome();if(next)startCapture();}
   }).catch(e=>{alert('Save failed: '+e);});
 }
-function cancelForm(){draft=null;showHome();}
+function cancelForm(){draft=null;editingId=null;editingOrig=null;showHome();}
+async function editItem(it){
+  draft={photos:[],cond:it.cond||'Take-off'};
+  for(const name of (it.photoNames||[])){const p=await getPhoto(name);if(p&&p.blob)draft.photos.push(p.blob);}
+  editingId=it.itemId;editingOrig=it;curGps=it.gps||null;
+  openForm();
+  $('mpn').value=it.mpn||'';$('series').value=it.series||'';$('firmware').value=it.firmware||'';
+  $('mfr').value=it.mfr||'';$('qty').value=it.qty||1;$('fzone').value=it.zone||$('zone').value;
+  $('notes').value=it.notes||'';
+  draft.cond=it.cond||'Take-off';
+  [...document.querySelectorAll('#condChips .chip')].forEach(c=>c.classList.toggle('sel',c.dataset.v===draft.cond));
+  renderThumbs();mpnHint();
+  $('fTitle').textContent='Edit · '+it.itemId;
+}
 
 /* ---------- views ---------- */
 function showHome(){$('form').classList.add('hide');$('list').classList.add('hide');$('saveBar').classList.add('hide');$('home').classList.remove('hide');}
@@ -399,9 +422,12 @@ async function renderItemRow(parent,it,withDel){
     '<div><span class="tag">'+esc(it.cond)+'</span><span class="tag">qty '+it.qty+'</span><span class="tag">'+esc(it.zone)+'</span></div>'+
     '<div>ser/fw: '+esc(sec)+(it.gps&&it.gps.lat?(' · 📍'+it.gps.lat+','+it.gps.lng):' · 📍none')+'</div>';
   div.appendChild(m);
-  if(withDel){const d=document.createElement('button');d.className='btn warn';d.style.width='auto';d.style.padding='8px 12px';d.textContent='✕';
-    d.onclick=async()=>{if(await modalOpen('Delete '+it.itemId+'?',false))Promise.all([del(SV,it.itemId),...it.photoNames.map(n=>del(SP,n))]).then(()=>{showList();refresh();});};
-    div.appendChild(d);}
+  if(withDel){
+    m.style.cursor='pointer';m.title='Tap to edit';m.onclick=()=>editItem(it);
+    const ed=document.createElement('button');ed.className='btn ghost';ed.style.width='auto';ed.style.padding='8px 12px';ed.style.marginRight='6px';ed.textContent='✎';ed.onclick=()=>editItem(it);
+    const d=document.createElement('button');d.className='btn warn';d.style.width='auto';d.style.padding='8px 12px';d.textContent='✕';
+    d.onclick=async()=>{if(await modalOpen('Delete '+it.itemId+'?',false))Promise.all([del(SV,it.itemId),...(it.photoNames||[]).map(n=>del(SP,n))]).then(()=>{showList();refresh();});};
+    const wrap=document.createElement('div');wrap.style.display='flex';wrap.appendChild(ed);wrap.appendChild(d);div.appendChild(wrap);}
   parent.appendChild(div);
 }
 function getPhoto(name){if(MEM)return Promise.resolve(mem.photos[name]||null);
